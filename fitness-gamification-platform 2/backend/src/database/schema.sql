@@ -3,6 +3,7 @@
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ============================================================================
 -- ENUMS
@@ -339,4 +340,3 @@ GROUP BY csd.club_id, csd.season_id, DATE_TRUNC('week', csd.date);
 INSERT INTO user_auth (email, password_hash, role, status)
 VALUES ('admin@platform.com', '$2b$10$YourHashedPasswordHere', 'SUPER_ADMIN', 'ACTIVE');
 
-COMMENT ON DATABASE fitness_gamification IS 'Fitness Gamification Platform - Multi-tenant SaaS';
