@@ -92,8 +92,7 @@ export const generateToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): string 
  * Generate refresh token (longer expiry)
  */
 export const generateRefreshToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): string => {
-  const expiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn as string });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
 };
 
 /**
