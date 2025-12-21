@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, Key, Bell, Shield, Globe } from 'lucide-react';
+import { Save, Key, Bell, Shield, Globe, Trophy } from 'lucide-react';
 
 const SettingsPage = () => {
   const [settings, setSettings] = useState({
