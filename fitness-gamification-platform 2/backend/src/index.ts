@@ -104,13 +104,14 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // SERVER STARTUP
 // ============================================================================
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║  🏋️  Fitness Gamification Platform API                    ║
 ║                                                           ║
 ║  Environment: ${process.env.NODE_ENV || 'development'}                              ║
 ║  Port: ${PORT}                                              ║
+║  Host: 0.0.0.0                                             ║
 ║  API Version: ${API_VERSION}                                         ║
 ╚═══════════════════════════════════════════════════════════╝
   `);
