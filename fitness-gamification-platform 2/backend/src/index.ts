@@ -104,11 +104,16 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // SERVER STARTUP
 // ============================================================================
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-});
+const server = app.listen(PORT, () => {
+  console.log(`
+╔═══════════════════════════════════════════════════════════╗
+║  🏋️  Fitness Gamification Platform API                    ║
+║                                                           ║
+║  Environment: ${process.env.NODE_ENV || 'development'}                              ║
+║  Port: ${PORT}                                              ║
+║  API Version: ${API_VERSION}                                         ║
+╚═══════════════════════════════════════════════════════════╝
+  `);
 
   // Setup cron jobs
   if (process.env.NODE_ENV !== 'test') {
