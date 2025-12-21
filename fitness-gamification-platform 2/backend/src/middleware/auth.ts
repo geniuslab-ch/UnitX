@@ -85,8 +85,7 @@ export const optionalAuth = (
  * Generate JWT token
  */
 export const generateToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): string => {
-  const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn as string });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 };
 
 /**
