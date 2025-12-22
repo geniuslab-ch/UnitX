@@ -74,44 +74,40 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// ============================================================================
-// ROUTES
-// ============================================================================
+// ... (gardez vos imports et middlewares au début)
 
-app.get('/', (req: Request, res: Response) => {
-  res.json({
-    name: 'Fitness Gamification Platform API',
-    version: API_VERSION,
-    status: 'running',
-  });
-});
-
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+// LOG DE DÉBOGAGE DES ROUTES (À ajouter avant vos routes)
+app.use((req, res, next) => {
+  console.log(`Requête entrante: ${req.method} ${req.url}`);
+  next();
 });
 
 // API routes
-app.use(`/api/${API_VERSION}/auth`, authRoutes);
-app.use(`/api/${API_VERSION}/health`, healthRoutes);
+// Note : Vérifiez bien que process.env.API_VERSION est défini sur Railway, sinon il utilisera 'v1'
+const API_PREFIX = `/api/${API_VERSION}`;
 
-// ============================================================================
-// ERROR HANDLING
-// ============================================================================
+app.use(`${API_PREFIX}/auth`, authRoutes);
+app.use(`${API_PREFIX}/health`, healthRoutes);
 
-// 404 handler
-app.use((req: Request, res: Response) => {
-  res.status(404).json({ error: 'Route not found' });
+// ROUTES DE BASE
+app.get('/', (req: Request, res: Response) => {
+  res.json({ status: 'running', api_prefix: API_PREFIX });
 });
 
-// Global error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+// ============================================================================
+// ERROR HANDLING (Le 404 amélioré pour le debug)
+// ============================================================================
+
+app.use((req: Request, res: Response) => {
+  console.error(`Route non trouvée : ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ 
+    error: 'Route not found',
+    attemptedPath: req.originalUrl,
+    expectedPrefix: API_PREFIX
   });
 });
 
+// ... (gardez le reste du code server startup)
 // ============================================================================
 // SERVER STARTUP
 // ============================================================================
