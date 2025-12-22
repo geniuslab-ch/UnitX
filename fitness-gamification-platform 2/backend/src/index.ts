@@ -19,8 +19,6 @@ console.log('🔍 DATABASE_URL exists:', !!process.env.DATABASE_URL);
 console.log('🔍 DATABASE_URL value:', process.env.DATABASE_URL?.substring(0, 50) + '...');
 console.log('🔍 All env vars:', Object.keys(process.env).filter(k => k.includes('DATA')));
 
-// Import routes
-
 const app: Application = express();
 
 // Trust proxy for Railway (CRITICAL - must be before other middleware)
@@ -92,99 +90,4 @@ app.use((req, res, next) => {
 // ============================================================================
 
 // ROUTES DE BASE
-app.get('/', (req: Request, res: Response) => {
-  res.json({ 
-    status: 'running', 
-    api_version: API_VERSION 
-  });
-});
-
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString() 
-  });
-});
-
-// API routes
-const API_PREFIX = `/api/${API_VERSION}`;
-app.use(`${API_PREFIX}/auth`, loginRoutes);
-app.use(`${API_PREFIX}/health`, healthRoutes);
-app.use(`${API_PREFIX}/brands`, brandRoutes);
-app.use(`${API_PREFIX}/clubs`, clubRoutes);
-app.use(`${API_PREFIX}/seasons`, seasonRoutes);
-
-// ============================================================================
-// ERROR HANDLING
-// ============================================================================
-
-// 404 handler
-app.use((req: Request, res: Response) => {
-  console.error(`Route non trouvée : ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ 
-    error: 'Route not found',
-    attemptedPath: req.originalUrl,
-    expectedPrefix: API_PREFIX
-  });
-});
-
-// Global error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
-  });
-});
-
-// ============================================================================
-// SERVER STARTUP
-// ============================================================================
-
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`
-╔═══════════════════════════════════════════════════════════╗
-║  🏋️  Fitness Gamification Platform API                    ║
-║                                                           ║
-║  Environment: ${process.env.NODE_ENV || 'development'}     ║
-║  Port: ${PORT}                                             ║
-║  Host: 0.0.0.0                                             ║
-║  API Version: ${API_VERSION}                               ║
-╚═══════════════════════════════════════════════════════════╝
-  `);
-
-  if (process.env.NODE_ENV !== 'test') {
-    setupCronJobs();
-  }
-});
-
-// ============================================================================
-// GRACEFUL SHUTDOWN
-// ============================================================================
-
-const gracefulShutdown = async (signal: string) => {
-  console.log(`\n${signal} received. Starting graceful shutdown...`);
-
-  server.close(async () => {
-    console.log('HTTP server closed');
-
-    try {
-      await closePool();
-      console.log('Database connections closed');
-      process.exit(0);
-    } catch (error) {
-      console.error('Error during shutdown:', error);
-      process.exit(1);
-    }
-  });
-
-  setTimeout(() => {
-    console.error('Forced shutdown after timeout');
-    process.exit(1);
-  }, 10000);
-};
-
-process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => void gracefulShutdown('SIGINT'));
-
-export default app;
+app.get('/', (req
