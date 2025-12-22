@@ -20,8 +20,8 @@ class ApiClient {
     this.initializeInterceptors();
   }
 
-  // --- INTERCEPTORS ---
   private initializeInterceptors() {
+    // Intercepteur de requête
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
         const token = localStorage.getItem('access_token');
@@ -33,6 +33,7 @@ class ApiClient {
       (error) => Promise.reject(error)
     );
 
+    // Intercepteur de réponse
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
@@ -45,7 +46,6 @@ class ApiClient {
     );
   }
 
-  // --- METHODES API ---
   async login(email: string, password: string) {
     const { data } = await this.client.post('/auth/login', { email, password });
     if (data.token) {
@@ -65,7 +65,7 @@ class ApiClient {
     });
     return data;
   }
-} // <--- Fermeture de la classe ici uniquement
+} // <--- Fin de la classe
 
 export const apiClient = new ApiClient();
 export default apiClient;
