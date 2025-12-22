@@ -5,6 +5,8 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { setupCronJobs } from './jobs/cron';
 import { closePool } from './database/db';
+
+// Import routes
 import loginRoutes from './routes/login.routes';
 import healthRoutes from './routes/health.routes';
 import brandRoutes from './routes/brand.routes';
@@ -14,92 +16,105 @@ import seasonRoutes from './routes/season.routes';
 // Load environment variables
 dotenv.config();
 
-// DEBUG - Voir DATABASE_URL
-console.log('🔍 DATABASE_URL exists:', !!process.env.DATABASE_URL);
-console.log('🔍 DATABASE_URL value:', process.env.DATABASE_URL?.substring(0, 50) + '...');
-console.log('🔍 All env vars:', Object.keys(process.env).filter(k => k.includes('DATA')));
-
 const app: Application = express();
 
-// Trust proxy for Railway (CRITICAL - must be before other middleware)
+// ============================================================================
+// CONFIGURATION & LOGGING INITIAL
+// ============================================================================
+
 app.set('trust proxy', 1);
 
 const API_VERSION = process.env.API_VERSION || 'v1';
-
-// PORT doit être un number (Railway fournit PORT en string)
 const PORT = Number(process.env.PORT ?? 3000);
-if (Number.isNaN(PORT)) {
-  throw new Error(`Invalid PORT value: ${process.env.PORT}`);
-}
+
+// Request logging (Placé ici pour tout voir, même les 404)
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`);
+    });
+    next();
+});
 
 // ============================================================================
 // MIDDLEWARE
 // ============================================================================
 
-// Security
 app.use(helmet());
 
-// CORS
-const corsOrigin =
-  process.env.CORS_ORIGIN?.split(',')
-    .map(s => s.trim())
-    .filter(Boolean) ?? ['http://localhost:3001'];
+const corsOrigin = process.env.CORS_ORIGIN?.split(',').map(s => s.trim()).filter(Boolean) ?? ['http://localhost:3001'];
+app.use(cors({
+    origin: corsOrigin,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
-const corsMiddleware = cors({
-  origin: corsOrigin,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-});
-
-app.use(corsMiddleware);
-app.options('*', corsMiddleware);
-
-// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiting
+// Rate limiting uniquement sur l'API
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
-  message: 'Too many requests from this IP, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { error: 'Too many requests, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
 });
 app.use('/api/', limiter);
-
-// Request logging
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    console.log(`${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
-  });
-  next();
-});
-
-// LOG DE DÉBOGAGE DES ROUTES
-app.use((req, res, next) => {
-  console.log(`Requête entrante: ${req.method} ${req.url}`);
-  next();
-});
 
 // ============================================================================
 // ROUTES
 // ============================================================================
 
-// ROUTES DE BASE
-app.get('/', (req: Request, res: Response) => {
-  res.json({ 
-    status: 'running', 
-    api_version: API_VERSION 
-  });
+// Routes de base (Utile pour vérifier si le serveur répond sur Railway)
+app.get('/', (req, res) => res.json({ status: 'running', version: API_VERSION }));
+app.get('/health', (req, res) => res.json({ status: 'healthy', time: new Date() }));
+
+// Montage des routes API
+const apiRouter = express.Router();
+
+// Correction ici : on enregistre chaque module de route
+apiRouter.use('/auth', loginRoutes); // Sera accessible sur /api/v1/auth/login
+apiRouter.use('/brands', brandRoutes);
+apiRouter.use('/clubs', clubRoutes);
+apiRouter.use('/seasons', seasonRoutes);
+apiRouter.use('/health-check', healthRoutes);
+
+// Application du préfixe global
+app.use(`/api/${API_VERSION}`, apiRouter);
+
+// ============================================================================
+// GESTION DES ERREURS
+// ============================================================================
+
+// Handler 404 - Si aucune route ne correspond
+app.use((req: Request, res: Response) => {
+    console.warn(`⚠️ 404 Not Found: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ 
+        error: 'Route not found', 
+        path: req.originalUrl,
+        message: `Vérifiez que l'URL est bien /api/${API_VERSION}/votre-route`
+    });
 });
 
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString() 
-  });
+// Global Error Handler
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error('❌ Server Error:', err);
+    res.status(err.status || 500).json({
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
 });
+
+// ============================================================================
+// DÉMARRAGE
+// ============================================================================
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server ready on port ${PORT} (API: /api/${API_VERSION})`);
+    if (process.env.NODE_ENV !== 'test') setupCronJobs();
+});
+
+export default app;
