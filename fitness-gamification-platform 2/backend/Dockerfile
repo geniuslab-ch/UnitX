@@ -1,5 +1,4 @@
-# Build stage
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -7,35 +6,59 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci --only=production || npm install --production
 
 # Copy source code
 COPY . .
 
-# Build application with verification
-RUN npm run build && \
-    ls -la dist/ && \
-    echo "Build files:" && \
-    find dist -type f | head -20
+# Build TypeScript
+RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+# Remove dev dependencies after build
+RUN npm prune --production
 
-# Copy built files
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Expose port
+EXPOSE 3000
 
-# Verify files were copied
-RUN ls -la /usr/share/nginx/html && \
-    echo "Nginx will serve from /usr/share/nginx/html"
+# Start application
+CMD ["node", "dist/index.js"]
+```
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+**Commit sur GitHub**
 
-# Test nginx config
-RUN nginx -t
+---
 
-# Expose port 80
-EXPOSE 80
+## Vérifiez les Variables MAINTENANT
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+**Pendant que ça rebuild, vérifiez:**
+
+**Railway → Backend → Variables**
+
+**Vous DEVEZ avoir:**
+```
+DATABASE_URL = ${{Postgres.DATABASE_URL}}  🔗 (référence)
+JWT_SECRET = ...
+CORS_ORIGIN = https://distinguished-compassion-production.up.railway.app
+NODE_ENV = production
+PORT = 3000
+```
+
+**Si DATABASE_URL n'est PAS une référence 🔗, RECRÉEZ-LA !**
+
+---
+
+## Après le Rebuild
+
+**Logs devront montrer:**
+```
+✅ npm install
+✅ npm run build
+✅ TypeScript compiled
+✅ Server listening on port 3000
+✅ Database connected
+```
+
+**Pas de:**
+```
+❌ nginx
+❌ ECONNREFUSED 127.0.0.1:5432
