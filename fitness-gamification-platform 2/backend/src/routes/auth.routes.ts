@@ -1,3 +1,10 @@
+import { Router, Request, Response } from 'express';
+import bcrypt from 'bcrypt';
+import { query } from '../database/connection';
+import { generateToken, generateRefreshToken } from '../middleware/auth';
+
+const router = Router();
+
 /**
  * POST /auth/login
  * Login with email/password
@@ -10,7 +17,7 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
-    // Get member directly (no user_auth table)
+    // Get member directly
     const result = await query(
       `SELECT id, email, password_hash, role, first_name, last_name
        FROM members
@@ -59,21 +66,5 @@ router.post('/login', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Login failed' });
   }
 });
-```
 
-**Commit sur GitHub**
-
----
-
-## Railway Rebuild Automatique
-
-Railway va détecter le changement et rebuild le backend automatiquement (2-3 min).
-
----
-
-## Après le Rebuild
-
-**Retestez le login:**
-```
-Email: admin@unitx.com
-Password: admin123
+export default router;
