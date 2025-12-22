@@ -5,6 +5,11 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { setupCronJobs } from './jobs/cron';
 import { closePool } from './database/db';
+import loginRoutes from './routes/login.routes';
+import healthRoutes from './routes/health.routes';
+import brandRoutes from './routes/brand.routes';
+import clubRoutes from './routes/club.routes';
+import seasonRoutes from './routes/season.routes';
 
 // Load environment variables
 dotenv.config();
