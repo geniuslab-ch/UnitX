@@ -38,13 +38,17 @@ const corsOrigin =
   process.env.CORS_ORIGIN?.split(',')
     .map(s => s.trim())
     .filter(Boolean) ?? ['http://localhost:3001'];
-  })
-);
 
-app.options('*', cors({
+const corsMiddleware = cors({
   origin: corsOrigin,
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+});
+
+app.use(corsMiddleware);
+app.options('*', corsMiddleware);
+
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
