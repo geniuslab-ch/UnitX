@@ -12,6 +12,12 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Build with environment variables
+ARG VITE_API_URL
+ARG VITE_ENV
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_ENV=$VITE_ENV
+
 # Build application with verification
 RUN npm run build && \
     ls -la dist/ && \
