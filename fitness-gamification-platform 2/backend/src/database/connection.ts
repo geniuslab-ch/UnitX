@@ -1,82 +1,56 @@
 import { Pool, PoolConfig, QueryResult } from 'pg';
 
-// FORCE REBUILD v5 - Cache bust
-console.log('🔧 Database connection module loaded - v5');
-console.log('DATABASE_URL present:', !!process.env.DATABASE_URL);
-console.log('DATABASE_URL starts with:', process.env.DATABASE_URL?.substring(0, 20));
-
+// Database connection pool configuration
 const poolConfig: PoolConfig = {
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 };
-```
 
-**Commit → Ça va forcer la recompilation de ce fichier !**
+// Create pool
+const pool = new Pool(poolConfig);
 
----
-
-import { Pool, PoolConfig } from 'pg';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const poolConfig: PoolConfig = {
-  connectionString: process.env.DATABASE_URL,
-  min: parseInt(process.env.DB_POOL_MIN || '2'),
-  max: parseInt(process.env.DB_POOL_MAX || '10'),
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-};
-
-// Create pool instance
-export const pool = new Pool(poolConfig);
-
-// Test connection
+// Log connection on startup
 pool.on('connect', () => {
   console.log('✅ Database connected');
 });
 
 pool.on('error', (err) => {
-  console.error('❌ Unexpected database error:', err);
-  process.exit(-1);
+  console.error('❌ Database error:', err);
 });
 
-// Query helper with logging
-export const query = async (text: string, params?: any[]) => {
+/**
+ * Execute a query
+ */
+export async function query(
+  text: string,
+  params?: any[]
+): Promise<QueryResult> {
   const start = Date.now();
   try {
-    const res = await pool.query(text, params);
+    const result = await pool.query(text, params);
     const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: res.rowCount });
-    return res;
+    console.log('Query executed:', { text, duration, rows: result.rowCount });
+    return result;
   } catch (error) {
     console.error('Query error:', { text, error });
     throw error;
   }
-};
+}
 
-// Transaction helper
-export const transaction = async (callback: (client: any) => Promise<any>) => {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await callback(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-};
+/**
+ * Get a client from the pool for transactions
+ */
+export async function getClient() {
+  return await pool.connect();
+}
 
-// Graceful shutdown
-export const closePool = async () => {
+/**
+ * Close the pool (for graceful shutdown)
+ */
+export async function closePool() {
   await pool.end();
-  console.log('Database pool closed');
-};
+}
 
 export default pool;
