@@ -1,6 +1,9 @@
 # Build stage
 FROM node:20-alpine AS builder
 
+# Cache buster - change this to force rebuild
+RUN echo "Cache bust v3 - $(date)"
+
 WORKDIR /app
 
 # Copy package files
@@ -12,7 +15,7 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build with environment variables
+# Pass build arguments
 ARG VITE_API_URL
 ARG VITE_ENV
 ENV VITE_API_URL=$VITE_API_URL
