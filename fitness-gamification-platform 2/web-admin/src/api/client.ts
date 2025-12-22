@@ -2,7 +2,8 @@ import axios, { AxiosInstance } from 'axios';
 
 const RAW_API_ROOT = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const API_ROOT = RAW_API_ROOT.trim().replace(/\/+$/, '');
-const API_BASE_URL = `${API_ROOT}/api/v1`;
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'https://rare-contentment-production.up.railway.app'}/api/v1`;
+
 
 class ApiClient {
   private client: AxiosInstance;
