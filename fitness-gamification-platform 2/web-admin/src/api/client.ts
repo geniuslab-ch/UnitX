@@ -1,6 +1,11 @@
 import axios, { AxiosInstance } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+// IMPORTANT : VITE_API_URL doit être la base du backend (sans /api/v1)
+// Exemple Railway : https://unitx-production.up.railway.app
+const API_ROOT = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+// Ton backend expose /api/v1/...
+const API_BASE_URL = `${API_ROOT.replace(/\/+$/, '')}/api/v1`;
 
 class ApiClient {
   private client: AxiosInstance;
@@ -12,6 +17,8 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      // utile si tu utilises des cookies un jour, sinon tu peux laisser
+      withCredentials: true,
     });
 
     // Request interceptor
@@ -19,6 +26,7 @@ class ApiClient {
       (config) => {
         const token = localStorage.getItem('access_token');
         if (token) {
+          config.headers = config.headers ?? {};
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -41,6 +49,7 @@ class ApiClient {
 
   // Auth
   async login(email: string, password: string) {
+    // -> POST https://unitx-production.up.railway.app/api/v1/auth/login
     const { data } = await this.client.post('/auth/login', { email, password });
     return data;
   }
