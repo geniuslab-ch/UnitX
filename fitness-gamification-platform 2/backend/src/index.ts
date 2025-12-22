@@ -41,7 +41,10 @@ const corsOrigin =
   })
 );
 
-app.options('*', cors());
+app.options('*', cors({
+  origin: corsOrigin,
+  credentials: true,
+}));
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
