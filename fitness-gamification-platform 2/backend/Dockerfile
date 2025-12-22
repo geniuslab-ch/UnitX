@@ -15,21 +15,15 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # Étape 2 : Serveur web Nginx pour servir les fichiers statiques
-FROM nginx:alpine
+# ... (partie build identique)
 
-# Copie des fichiers buildés depuis l'étape précédente
+FROM nginx:alpine
+# On supprime la config par défaut
+RUN rm /etc/nginx/conf.d/default.conf
+# On copie notre config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+# On copie les fichiers statiques
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# IMPORTANT : On écrase la config Nginx par défaut pour gérer le SPA Routing
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
-
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
