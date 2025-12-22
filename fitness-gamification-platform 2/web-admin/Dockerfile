@@ -1,30 +1,27 @@
-FROM node:20-alpine
-
+# ===== Build (Vite) =====
+FROM node:20-alpine AS build
 WORKDIR /app
-
-RUN apk add --no-cache nginx
 
 COPY package*.json ./
 RUN npm install
 
 COPY . .
+RUN npm run build
 
-ARG VITE_API_URL=https://unitx-production.up.railway.app/api/v1
-ARG VITE_ENV=production
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_ENV=$VITE_ENV
+# ===== Run (Nginx) =====
+FROM nginx:alpine
 
-RUN echo "Building with VITE_API_URL=$VITE_API_URL" && \
-    npm run build && \
-    ls -la dist/ && \
-    find dist -type f && \
-    mkdir -p /usr/share/nginx/html && \
-    cp -rv dist/* /usr/share/nginx/html/
+# Railway fournit PORT, on met un défaut
+ENV PORT=8080
 
-COPY nginx.conf /etc/nginx/http.d/default.conf
+# Copier le build Vite
+COPY --from=build /app/dist /usr/share/nginx/html
 
-RUN nginx -t
+# Copier un template nginx
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
-EXPOSE 80
+# Exposer le port (Railway va router dessus)
+EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+# Générer la conf finale avec $PORT puis démarrer nginx
+CMD ["/bin/sh", "-c", "envsubst '$$PORT' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
