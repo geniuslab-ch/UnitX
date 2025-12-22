@@ -4,10 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { setupCronJobs } from './jobs/cron';
-import { closePool } from './database/connection';
-
-// Load environment variables
-dotenv.config();
+import { closePool } from './database/db';
 
 // Load environment variables
 dotenv.config();
@@ -18,11 +15,7 @@ console.log('🔍 DATABASE_URL value:', process.env.DATABASE_URL?.substring(0, 5
 console.log('🔍 All env vars:', Object.keys(process.env).filter(k => k.includes('DATA')));
 
 // Import routes
-import authRoutes from './routes/auth.routes';
-```
-
-// Import routes
-import authRoutes from './routes/auth.routes';
+import loginRoutes from './routes/login.routes';
 import healthRoutes from './routes/health.routes';
 
 const app: Application = express();
@@ -61,14 +54,13 @@ const corsMiddleware = cors({
 app.use(corsMiddleware);
 app.options('*', corsMiddleware);
 
-
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
   message: 'Too many requests from this IP, please try again later',
   standardHeaders: true,
@@ -86,28 +78,41 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// ... (gardez vos imports et middlewares au début)
-
-// LOG DE DÉBOGAGE DES ROUTES (À ajouter avant vos routes)
+// LOG DE DÉBOGAGE DES ROUTES
 app.use((req, res, next) => {
   console.log(`Requête entrante: ${req.method} ${req.url}`);
   next();
 });
 
-// API routes
-const API_PREFIX = `/api/${API_VERSION}`;
-app.use(`${API_PREFIX}/auth`, authRoutes);
-app.use(`${API_PREFIX}/health`, healthRoutes);
+// ============================================================================
+// ROUTES
+// ============================================================================
 
 // ROUTES DE BASE
 app.get('/', (req: Request, res: Response) => {
-  res.json({ status: 'running', api_prefix: API_PREFIX });
+  res.json({ 
+    status: 'running', 
+    api_version: API_VERSION 
+  });
 });
+
+app.get('/health', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString() 
+  });
+});
+
+// API routes
+const API_PREFIX = `/api/${API_VERSION}`;
+app.use(`${API_PREFIX}/auth`, loginRoutes);
+app.use(`${API_PREFIX}/health`, healthRoutes);
 
 // ============================================================================
 // ERROR HANDLING
-// ===============================================================================================================================
+// ============================================================================
 
+// 404 handler
 app.use((req: Request, res: Response) => {
   console.error(`Route non trouvée : ${req.method} ${req.originalUrl}`);
   res.status(404).json({ 
@@ -117,7 +122,15 @@ app.use((req: Request, res: Response) => {
   });
 });
 
-// ... (gardez le reste du code server startup)
+// Global error handler
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  });
+});
+
 // ============================================================================
 // SERVER STARTUP
 // ============================================================================
