@@ -1,3 +1,22 @@
+import { Pool, PoolConfig, QueryResult } from 'pg';
+
+// FORCE REBUILD v5 - Cache bust
+console.log('🔧 Database connection module loaded - v5');
+console.log('DATABASE_URL present:', !!process.env.DATABASE_URL);
+console.log('DATABASE_URL starts with:', process.env.DATABASE_URL?.substring(0, 20));
+
+const poolConfig: PoolConfig = {
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+};
+```
+
+**Commit → Ça va forcer la recompilation de ce fichier !**
+
+---
+
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 
