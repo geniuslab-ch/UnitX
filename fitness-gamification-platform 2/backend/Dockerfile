@@ -1,24 +1,41 @@
-FROM node:20-alpine
+# Build stage
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install ALL dependencies (needed for building)
+# Install dependencies
 RUN npm install
 
 # Copy source code
 COPY . .
 
-# Build TypeScript
-RUN npm run build
+# Build application with verification
+RUN npm run build && \
+    ls -la dist/ && \
+    echo "Build files:" && \
+    find dist -type f | head -20
 
-# Remove dev dependencies after build
-RUN npm prune --production
+# Production stage
+FROM nginx:alpine
 
-# Expose port
-EXPOSE 3000
+# Copy built files
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Start application
-CMD ["npm", "start"]
+# Verify files were copied
+RUN ls -la /usr/share/nginx/html && \
+    echo "Nginx will serve from /usr/share/nginx/html"
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Test nginx config
+RUN nginx -t
+
+# Expose port 80
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
