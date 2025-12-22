@@ -18,7 +18,20 @@ class ApiClient {
     });
 
     this.initializeInterceptors();
-  }
+} }
+
+//
+
+async importClubs(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const { data } = await this.client.post('/clubs/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return data;
 
   private initializeInterceptors() {
     // Intercepteur de requête
