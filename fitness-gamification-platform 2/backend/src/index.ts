@@ -90,4 +90,16 @@ app.use((req, res, next) => {
 // ============================================================================
 
 // ROUTES DE BASE
-app.get('/', (req
+app.get('/', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'running', 
+    api_version: API_VERSION 
+  });
+});
+
+app.get('/health', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString() 
+  });
+});
