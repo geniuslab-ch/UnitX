@@ -20,8 +20,6 @@ console.log('🔍 DATABASE_URL value:', process.env.DATABASE_URL?.substring(0, 5
 console.log('🔍 All env vars:', Object.keys(process.env).filter(k => k.includes('DATA')));
 
 // Import routes
-import loginRoutes from './routes/login.routes';
-import healthRoutes from './routes/health.routes';
 
 const app: Application = express();
 
