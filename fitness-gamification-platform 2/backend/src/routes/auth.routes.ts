@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import { query } from '../database/connection';
+import { query } from '../database/db';  // ← Changé de connection à db
 import { generateToken, generateRefreshToken } from '../middleware/auth';
 
 const router = Router();
