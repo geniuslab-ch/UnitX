@@ -1,8 +1,13 @@
 import { Pool, PoolConfig, QueryResult } from 'pg';
 
+// TEMPORARY HARDCODE - Remove after testing
+const HARDCODED_DB_URL = 'postgresql://postgres:uWXbyLAqSrUVHlSYoeSuxOxzmccOanCy@switchback.proxy.rlwy.net:24750/railway';
+
+console.log('🔧 Using DATABASE_URL from:', process.env.DATABASE_URL ? 'ENV' : 'HARDCODE');
+
 // Database connection pool configuration
 const poolConfig: PoolConfig = {
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL || HARDCODED_DB_URL,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
