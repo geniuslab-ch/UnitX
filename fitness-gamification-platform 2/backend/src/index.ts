@@ -95,9 +95,7 @@ app.use((req, res, next) => {
 });
 
 // API routes
-// Note : Vérifiez bien que process.env.API_VERSION est défini sur Railway, sinon il utilisera 'v1'
 const API_PREFIX = `/api/${API_VERSION}`;
-
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/health`, healthRoutes);
 
@@ -107,8 +105,8 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // ============================================================================
-// ERROR HANDLING (Le 404 amélioré pour le debug)
-// ============================================================================
+// ERROR HANDLING
+// ===============================================================================================================================
 
 app.use((req: Request, res: Response) => {
   console.error(`Route non trouvée : ${req.method} ${req.originalUrl}`);
