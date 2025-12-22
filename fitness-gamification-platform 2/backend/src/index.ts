@@ -34,11 +34,10 @@ if (Number.isNaN(PORT)) {
 app.use(helmet());
 
 // CORS
-const corsOrigin = process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3001'];
-app.use(
-  cors({
-    origin: corsOrigin,
-    credentials: true,
+const corsOrigin =
+  process.env.CORS_ORIGIN?.split(',')
+    .map(s => s.trim())
+    .filter(Boolean) ?? ['http://localhost:3001'];
   })
 );
 
