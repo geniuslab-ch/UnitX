@@ -43,32 +43,3 @@ CMD ["nginx", "-g", "daemon off;"]
 ```
 
 **Commit**
-
----
-
-## Ce Que Ça Change
-
-1. ✅ **Pas de multi-stage** = pas de cache entre stages
-2. ✅ **Variables hardcodées** dans le Dockerfile
-3. ✅ **Verbose output** = on verra EXACTEMENT ce qui se passe
-4. ✅ **Copy manuel** vers nginx = on voit si les fichiers existent
-
----
-
-## Après le Rebuild - Logs à Vérifier
-
-**Vous DEVEZ voir:**
-```
-Building with VITE_API_URL=https://unitx-production.up.railway.app/api/v1
-=== Build completed ===
-dist/index.html
-dist/assets/
-=== Files in dist ===
-dist/index.html
-dist/assets/index-XXX.js      ← DOIT apparaître !
-dist/assets/index-YYY.css     ← DOIT apparaître !
-=== Copying to nginx ===
-=== Files in nginx html ===
-index.html
-assets/index-XXX.js
-assets/index-YYY.css
