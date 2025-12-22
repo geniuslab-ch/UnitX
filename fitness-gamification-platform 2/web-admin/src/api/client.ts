@@ -1,11 +1,16 @@
 import axios, { AxiosInstance } from 'axios';
 
-// Base backend Railway (sans /api/v1)
-const API_ROOT =
-  import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// IMPORTANT:
+// - VITE_API_URL doit être la base du backend (domaine uniquement), ex:
+//   https://rare-contentment-production.up.railway.app
+// - PAS de /api, PAS de /api/v1, PAS de /auth/login
+const RAW_API_ROOT = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-// Backend expose /api/v1/...
-const API_BASE_URL = `${API_ROOT.replace(/\/+$/, '')}/api/v1`;
+// Normalise: enlève espaces + slash final
+const API_ROOT = RAW_API_ROOT.trim().replace(/\/+$/, '');
+
+// Base API versionnée
+const API_BASE_URL = `${API_ROOT}/api/v1`;
 
 class ApiClient {
   private client: AxiosInstance;
@@ -14,13 +19,10 @@ class ApiClient {
     this.client = axios.create({
       baseURL: API_BASE_URL,
       timeout: 30000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       withCredentials: true,
     });
 
-    // Request interceptor
     this.client.interceptors.request.use(
       (config) => {
         const token = localStorage.getItem('access_token');
@@ -33,7 +35,6 @@ class ApiClient {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
@@ -50,4 +51,14 @@ class ApiClient {
   // AUTH
   // =====================
   async login(email: string, password: string) {
-    // 👉 POST https://rare-contentment-productio
+    // ✅ Résultat final attendu :
+    // POST https://rare-contentment-production.up.railway.app/api/v1/auth/login
+    const { data } = await this.client.post('/auth/login', { email, password });
+    return data;
+  }
+
+  // (le reste de tes méthodes peut rester identique)
+}
+
+export const apiClient = new ApiClient();
+export default apiClient;
