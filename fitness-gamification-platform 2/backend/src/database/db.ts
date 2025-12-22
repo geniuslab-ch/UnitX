@@ -1,8 +1,7 @@
 import { Pool, PoolConfig, QueryResult } from 'pg';
 
 // HARDCODED for testing
-const DB_URL = 'postgresql://postgres:uWXbyLAqSrUVHlSYoeSuxOxzmccOanCy@switchback.proxy.rlwy.net:24750/railway';
-
+const DB_URL = 'postgresql://postgres:uWXbyLAqSrUVHlSYoeSuxOxzmccOanCy@postgres.railway.internal:5432/railway';
 console.log('🔧 NEW DB MODULE LOADED!');
 
 const poolConfig: PoolConfig = {
