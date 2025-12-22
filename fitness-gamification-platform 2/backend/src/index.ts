@@ -9,6 +9,18 @@ import { closePool } from './database/connection';
 // Load environment variables
 dotenv.config();
 
+// Load environment variables
+dotenv.config();
+
+// DEBUG - Voir DATABASE_URL
+console.log('🔍 DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('🔍 DATABASE_URL value:', process.env.DATABASE_URL?.substring(0, 50) + '...');
+console.log('🔍 All env vars:', Object.keys(process.env).filter(k => k.includes('DATA')));
+
+// Import routes
+import authRoutes from './routes/auth.routes';
+```
+
 // Import routes
 import authRoutes from './routes/auth.routes';
 import healthRoutes from './routes/health.routes';
