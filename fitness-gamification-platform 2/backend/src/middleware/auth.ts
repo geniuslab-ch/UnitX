@@ -40,12 +40,12 @@ export const authenticateToken = (
 /**
  * Check if user has required role
  */
-export const requireRole = (...roles: UserRole[]) => {
+export const requireRole = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-
+    
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({ 
         error: 'Insufficient permissions',
@@ -53,7 +53,7 @@ export const requireRole = (...roles: UserRole[]) => {
         current: req.user.role
       });
     }
-
+    
     next();
   };
 };
@@ -101,13 +101,13 @@ export const generateRefreshToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): 
 export const canAccessClub = async (
   userId: string,
   clubId: string,
-  role: UserRole
+  role: string
 ): Promise<boolean> => {
   // SUPER_ADMIN can access everything
-  if (role === UserRole.SUPER_ADMIN) {
+  if (role === 'SUPER_ADMIN') {
     return true;
   }
-
+  
   // TODO: Implement actual checks based on member.club_id or brand ownership
   // For MVP, allow CLUB_ADMIN and BRAND_ADMIN to access their clubs
   return true;
