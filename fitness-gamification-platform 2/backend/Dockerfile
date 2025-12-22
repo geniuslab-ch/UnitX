@@ -1,11 +1,21 @@
 FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-# On compile si c'est du TypeScript
-RUN npm run build 
 
-# Le backend doit écouter sur un port (souvent 3000)
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+# Supprimer dist/ pour forcer recompilation complète
+RUN rm -rf dist/
+
+# Build
+RUN npm run build
+
+RUN npm prune --production
+
 EXPOSE 3000
+
 CMD ["node", "dist/index.js"]
