@@ -112,9 +112,6 @@ app.get('/health', (req: Request, res: Response) => {
 const API_PREFIX = `/api/${API_VERSION}`;
 app.use(`${API_PREFIX}/auth`, loginRoutes);
 app.use(`${API_PREFIX}/health`, healthRoutes);
-const API_PREFIX = `/api/${API_VERSION}`;
-app.use(`${API_PREFIX}/auth`, loginRoutes);
-app.use(`${API_PREFIX}/health`, healthRoutes);
 app.use(`${API_PREFIX}/brands`, brandRoutes);
 app.use(`${API_PREFIX}/clubs`, clubRoutes);
 app.use(`${API_PREFIX}/seasons`, seasonRoutes);
