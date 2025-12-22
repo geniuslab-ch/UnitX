@@ -18,23 +18,10 @@ class ApiClient {
     });
 
     this.initializeInterceptors();
-} }
+  }
 
-//
-
-async importClubs(file: File) {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const { data } = await this.client.post('/clubs/import', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-  return data;
-
+  // --- INTERCEPTORS ---
   private initializeInterceptors() {
-    // Intercepteur de requête
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
         const token = localStorage.getItem('access_token');
@@ -46,11 +33,9 @@ async importClubs(file: File) {
       (error) => Promise.reject(error)
     );
 
-    // Intercepteur de réponse
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
-        // Redirection si non autorisé (sauf sur la page de login pour éviter les boucles)
         if (error.response?.status === 401 && !window.location.pathname.includes('/login')) {
           localStorage.removeItem('access_token');
           window.location.href = '/login';
@@ -60,15 +45,27 @@ async importClubs(file: File) {
     );
   }
 
+  // --- METHODES API ---
   async login(email: string, password: string) {
-    // Idéalement, définit une interface pour la réponse ici
     const { data } = await this.client.post('/auth/login', { email, password });
     if (data.token) {
-        localStorage.setItem('access_token', data.token);
+      localStorage.setItem('access_token', data.token);
     }
     return data;
   }
-}
+
+  async importClubs(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const { data } = await this.client.post('/clubs/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return data;
+  }
+} // <--- Fermeture de la classe ici uniquement
 
 export const apiClient = new ApiClient();
 export default apiClient;
