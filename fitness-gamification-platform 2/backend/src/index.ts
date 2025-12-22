@@ -14,9 +14,13 @@ import authRoutes from './routes/auth.routes';
 import healthRoutes from './routes/health.routes';
 
 const app: Application = express();
+
+// Trust proxy for Railway (CRITICAL - must be before other middleware)
+app.set('trust proxy', 1);
+
 const API_VERSION = process.env.API_VERSION || 'v1';
 
-// ✅ PORT doit être un number (Railway fournit PORT en string)
+// PORT doit être un number (Railway fournit PORT en string)
 const PORT = Number(process.env.PORT ?? 3000);
 if (Number.isNaN(PORT)) {
   throw new Error(`Invalid PORT value: ${process.env.PORT}`);
@@ -109,10 +113,10 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 ╔═══════════════════════════════════════════════════════════╗
 ║  🏋️  Fitness Gamification Platform API                    ║
 ║                                                           ║
-║  Environment: ${process.env.NODE_ENV || 'development'}                              ║
-║  Port: ${PORT}                                              ║
+║  Environment: ${process.env.NODE_ENV || 'development'}     ║
+║  Port: ${PORT}                                             ║
 ║  Host: 0.0.0.0                                             ║
-║  API Version: ${API_VERSION}                                         ║
+║  API Version: ${API_VERSION}                               ║
 ╚═══════════════════════════════════════════════════════════╝
   `);
 
