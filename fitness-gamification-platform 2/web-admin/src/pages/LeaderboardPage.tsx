@@ -250,5 +250,29 @@ const LeaderboardPage = () => {
     </div>
   );
 };
+interface LeaderboardClub {
+  club_name: string;
+  total_points: number;
+  home_member_points: number;  // Points des membres du club
+  visitor_points: number;      // Points des visiteurs
+  active_home_members: number;
+  active_members_visited: number;
+}
+
+// Dans l'affichage
+<div className="space-y-2">
+  <div className="flex justify-between">
+    <span className="text-sm text-gray-600">Points membres:</span>
+    <span className="font-medium">{club.home_member_points}</span>
+  </div>
+  <div className="flex justify-between">
+    <span className="text-sm text-gray-600">Points visiteurs:</span>
+    <span className="font-medium">{club.visitor_points}</span>
+  </div>
+  <div className="flex justify-between border-t pt-2">
+    <span className="font-bold">Total:</span>
+    <span className="font-bold text-blue-600">{club.total_points}</span>
+  </div>
+</div>
 
 export default LeaderboardPage;
