@@ -203,3 +203,8 @@ class ApiClient {
 // Export d'une instance unique (Singleton)
 export const apiClient = new ApiClient();
 export default apiClient;
+
+async createMember(memberData: any) {
+  const { data } = await this.client.post('/members', memberData);
+  return data;
+}
