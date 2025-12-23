@@ -71,11 +71,13 @@ async function autoCompleteSeasons() {
 }
 
 /**
- * Calculate monthly standings for all active seasons
+ * Calculate monthly standings with HYBRID scoring system (70/30)
+ * - 70% points from home members (even if they visit other clubs)
+ * - 30% points from visitors at this club
  */
 async function calculateMonthlyStandings() {
   try {
-    console.log('📊 Calculating monthly standings...');
+    console.log('📊 Calculating monthly standings with hybrid 70/30 system...');
     
     const seasonsResult = await query(
       `SELECT id, name, start_date 
@@ -84,44 +86,90 @@ async function calculateMonthlyStandings() {
     );
     
     for (const season of seasonsResult.rows) {
+      // Get all clubs participating in this season
       const clubsResult = await query(
-        `SELECT c.id, c.name, 
-                COUNT(DISTINCT ch.member_id) as active_members,
-                COUNT(ch.id) as total_checkins,
-                COALESCE(SUM(ds.total_points), 0) as total_points
+        `SELECT 
+           c.id, 
+           c.name,
+           -- Membres du club (home members) qui font des check-ins n'importe où
+           COUNT(DISTINCT CASE WHEN m.club_id = c.id AND ch.id IS NOT NULL THEN m.id END) as active_home_members,
+           COUNT(CASE WHEN m.club_id = c.id THEN ch.id END) as checkins_by_home_members,
+           COALESCE(SUM(CASE WHEN m.club_id = c.id THEN ds.total_points END), 0) as points_by_home_members,
+           
+           -- Visiteurs (tous les check-ins dans CE club)
+           COUNT(DISTINCT CASE WHEN ch.club_id = c.id THEN ch.member_id END) as visitors_count,
+           COUNT(CASE WHEN ch.club_id = c.id THEN ch.id END) as checkins_at_club,
+           COALESCE(SUM(CASE WHEN ch.club_id = c.id THEN ds.total_points END), 0) as points_at_club
+           
          FROM season_clubs sc
          JOIN clubs c ON sc.club_id = c.id
-         LEFT JOIN checkins ch ON ch.club_id = c.id 
+         LEFT JOIN members m ON m.status = 'ACTIVE'
+         LEFT JOIN checkins ch ON ch.member_id = m.id
                               AND ch.season_id = $1
                               AND ch.checked_in_at >= date_trunc('month', CURRENT_DATE)
-         LEFT JOIN daily_scores ds ON ds.club_id = c.id 
+         LEFT JOIN daily_scores ds ON ds.member_id = m.id
                                    AND ds.season_id = $1
                                    AND ds.date >= date_trunc('month', CURRENT_DATE)
          WHERE sc.season_id = $1
-         GROUP BY c.id, c.name
-         ORDER BY total_points DESC, total_checkins DESC`,
+         GROUP BY c.id, c.name`,
         [season.id]
       );
       
-      console.log(`   📈 ${season.name}: ${clubsResult.rows.length} clubs ranked`);
+      // Calculate hybrid scores (70% home members + 30% visitors)
+      const clubScores = clubsResult.rows.map(club => {
+        // 70% des points des membres du club (même s'ils visitent ailleurs)
+        const homePoints = Math.round(parseFloat(club.points_by_home_members) * 0.7);
+        
+        // 30% des points des visiteurs dans ce club
+        const visitPoints = Math.round(parseFloat(club.points_at_club) * 0.3);
+        
+        // Total hybride
+        const totalPoints = homePoints + visitPoints;
+        
+        return {
+          id: club.id,
+          name: club.name,
+          active_home_members: parseInt(club.active_home_members) || 0,
+          checkins_by_home_members: parseInt(club.checkins_by_home_members) || 0,
+          points_by_home_members: parseFloat(club.points_by_home_members) || 0,
+          home_points: homePoints,
+          visitors_count: parseInt(club.visitors_count) || 0,
+          checkins_at_club: parseInt(club.checkins_at_club) || 0,
+          points_at_club: parseFloat(club.points_at_club) || 0,
+          visit_points: visitPoints,
+          total_checkins: parseInt(club.checkins_by_home_members) + parseInt(club.checkins_at_club),
+          total_points: totalPoints
+        };
+      });
       
+      // Sort by total points (descending)
+      clubScores.sort((a, b) => b.total_points - a.total_points);
+      
+      console.log(`   📈 ${season.name}: ${clubScores.length} clubs ranked`);
+      clubScores.forEach((club, index) => {
+        console.log(`      ${index + 1}. ${club.name}: ${club.total_points} pts (Home: ${club.home_points} + Visit: ${club.visit_points})`);
+      });
+      
+      // Store standings in database
       const firstDayOfMonth = new Date();
       firstDayOfMonth.setDate(1);
       const weekStart = firstDayOfMonth.toISOString().split('T')[0];
       
-      for (let i = 0; i < clubsResult.rows.length; i++) {
-        const club = clubsResult.rows[i];
+      for (let i = 0; i < clubScores.length; i++) {
+        const club = clubScores[i];
         
         await query(
           `INSERT INTO weekly_standings 
            (season_id, club_id, week_start, week_number, 
-            total_checkins, total_points, club_rank, calculated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+            total_checkins, total_points, club_rank, 
+            top_contributors, calculated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
            ON CONFLICT (season_id, club_id, week_start) 
            DO UPDATE SET 
              total_checkins = $5,
              total_points = $6,
              club_rank = $7,
+             top_contributors = $8,
              calculated_at = NOW()`,
           [
             season.id,
@@ -130,13 +178,28 @@ async function calculateMonthlyStandings() {
             new Date().getMonth() + 1,
             club.total_checkins,
             club.total_points,
-            i + 1
+            i + 1, // Rank
+            JSON.stringify({
+              system: 'hybrid_70_30',
+              home_members: {
+                count: club.active_home_members,
+                checkins: club.checkins_by_home_members,
+                raw_points: club.points_by_home_members,
+                weighted_points: club.home_points
+              },
+              visitors: {
+                count: club.visitors_count,
+                checkins: club.checkins_at_club,
+                raw_points: club.points_at_club,
+                weighted_points: club.visit_points
+              }
+            })
           ]
         );
       }
     }
     
-    console.log('✅ Monthly standings calculated');
+    console.log('✅ Monthly standings calculated with hybrid system');
   } catch (error) {
     console.error('❌ Error calculating monthly standings:', error);
     throw error;
@@ -245,8 +308,8 @@ export const setupCronJobs = () => {
 
   console.log('✅ All cron jobs scheduled');
   console.log('   - Daily season status check: 00:01 UTC');
-  console.log('   - Monthly standings: 1st of month at 02:00 UTC');
-  console.log('   - Daily standings update: 03:00 UTC');
+  console.log('   - Monthly standings: 1st of month at 02:00 UTC (Hybrid 70/30)');
+  console.log('   - Daily standings update: 03:00 UTC (Hybrid 70/30)');
   console.log('   - Anti-cheat detection: 04:00 UTC');
   console.log('   - Data cleanup: Sunday at 05:00 UTC');
 };
