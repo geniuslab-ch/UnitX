@@ -1,8 +1,147 @@
 import cron from 'node-cron';
 import dayjs from 'dayjs';
-import { ScoringService } from '../services/scoring.service';
-import { LeagueService } from '../services/league.service';
-import { query } from '../database/connection';
+import { query } from '../database/db';
+
+/**
+ * Auto-start seasons that have reached their start date
+ */
+async function autoStartSeasons() {
+  try {
+    console.log('🚀 Checking for seasons to auto-start...');
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    const result = await query(
+      `UPDATE seasons 
+       SET status = 'ACTIVE', updated_at = NOW()
+       WHERE status = 'DRAFT' 
+       AND start_date <= $1
+       RETURNING id, name, start_date`,
+      [today]
+    );
+    
+    if (result.rows.length > 0) {
+      console.log(`✅ Auto-started ${result.rows.length} season(s):`);
+      result.rows.forEach(season => {
+        console.log(`   - ${season.name} (started: ${season.start_date})`);
+      });
+    } else {
+      console.log('   No seasons to start today');
+    }
+    
+    return result.rows;
+  } catch (error) {
+    console.error('❌ Error auto-starting seasons:', error);
+    throw error;
+  }
+}
+
+/**
+ * Auto-complete seasons that have reached their end date
+ */
+async function autoCompleteSeasons() {
+  try {
+    console.log('🏁 Checking for seasons to auto-complete...');
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    const result = await query(
+      `UPDATE seasons 
+       SET status = 'COMPLETED', updated_at = NOW()
+       WHERE status = 'ACTIVE' 
+       AND end_date < $1
+       RETURNING id, name, end_date`,
+      [today]
+    );
+    
+    if (result.rows.length > 0) {
+      console.log(`✅ Auto-completed ${result.rows.length} season(s):`);
+      result.rows.forEach(season => {
+        console.log(`   - ${season.name} (ended: ${season.end_date})`);
+      });
+    } else {
+      console.log('   No seasons to complete today');
+    }
+    
+    return result.rows;
+  } catch (error) {
+    console.error('❌ Error auto-completing seasons:', error);
+    throw error;
+  }
+}
+
+/**
+ * Calculate monthly standings for all active seasons
+ */
+async function calculateMonthlyStandings() {
+  try {
+    console.log('📊 Calculating monthly standings...');
+    
+    const seasonsResult = await query(
+      `SELECT id, name, start_date 
+       FROM seasons 
+       WHERE status = 'ACTIVE'`
+    );
+    
+    for (const season of seasonsResult.rows) {
+      const clubsResult = await query(
+        `SELECT c.id, c.name, 
+                COUNT(DISTINCT ch.member_id) as active_members,
+                COUNT(ch.id) as total_checkins,
+                COALESCE(SUM(ds.total_points), 0) as total_points
+         FROM season_clubs sc
+         JOIN clubs c ON sc.club_id = c.id
+         LEFT JOIN checkins ch ON ch.club_id = c.id 
+                              AND ch.season_id = $1
+                              AND ch.checked_in_at >= date_trunc('month', CURRENT_DATE)
+         LEFT JOIN daily_scores ds ON ds.club_id = c.id 
+                                   AND ds.season_id = $1
+                                   AND ds.date >= date_trunc('month', CURRENT_DATE)
+         WHERE sc.season_id = $1
+         GROUP BY c.id, c.name
+         ORDER BY total_points DESC, total_checkins DESC`,
+        [season.id]
+      );
+      
+      console.log(`   📈 ${season.name}: ${clubsResult.rows.length} clubs ranked`);
+      
+      const firstDayOfMonth = new Date();
+      firstDayOfMonth.setDate(1);
+      const weekStart = firstDayOfMonth.toISOString().split('T')[0];
+      
+      for (let i = 0; i < clubsResult.rows.length; i++) {
+        const club = clubsResult.rows[i];
+        
+        await query(
+          `INSERT INTO weekly_standings 
+           (season_id, club_id, week_start, week_number, 
+            total_checkins, total_points, club_rank, calculated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+           ON CONFLICT (season_id, club_id, week_start) 
+           DO UPDATE SET 
+             total_checkins = $5,
+             total_points = $6,
+             club_rank = $7,
+             calculated_at = NOW()`,
+          [
+            season.id,
+            club.id,
+            weekStart,
+            new Date().getMonth() + 1,
+            club.total_checkins,
+            club.total_points,
+            i + 1
+          ]
+        );
+      }
+    }
+    
+    console.log('✅ Monthly standings calculated');
+  } catch (error) {
+    console.error('❌ Error calculating monthly standings:', error);
+    throw error;
+  }
+}
 
 /**
  * Setup all cron jobs for the platform
@@ -11,48 +150,46 @@ export const setupCronJobs = () => {
   console.log('⏰ Setting up cron jobs...');
 
   /**
-   * DAILY JOB: Recalculate member and club scores
-   * Runs every day at 00:30 (after midnight)
+   * SEASON AUTO-START/COMPLETE JOB
+   * Runs every day at 00:01 (1 minute after midnight)
    */
-  cron.schedule('30 0 * * *', async () => {
-    console.log('🌙 Starting daily score recalculation job');
+  cron.schedule('1 0 * * *', async () => {
+    console.log('\n🕐 Running daily season status check...');
     try {
-      const yesterday = dayjs().subtract(1, 'day').toDate();
-      await ScoringService.recalculateDailyScores(yesterday);
-      console.log('✅ Daily score recalculation completed');
+      await autoStartSeasons();
+      await autoCompleteSeasons();
     } catch (error) {
-      console.error('❌ Error in daily score job:', error);
+      console.error('❌ Error in season status job:', error);
     }
   }, {
     timezone: 'UTC'
   });
 
   /**
-   * WEEKLY JOB: Calculate standings and apply promotions/demotions
-   * Runs every Monday at 00:10 (just after week ends)
+   * MONTHLY STANDINGS JOB
+   * Runs on the 1st of each month at 02:00
    */
-  cron.schedule('10 0 * * 1', async () => {
-    console.log('📊 Starting weekly league standings job');
+  cron.schedule('0 2 1 * *', async () => {
+    console.log('\n📊 Running monthly standings calculation...');
     try {
-      // Get previous week's Monday
-      const lastMonday = dayjs().subtract(1, 'week').startOf('week').toDate();
-
-      // Get all active seasons
-      const seasonsResult = await query(
-        `SELECT id FROM seasons WHERE status = 'ACTIVE'`
-      );
-
-      for (const season of seasonsResult.rows) {
-        // Calculate standings
-        await LeagueService.calculateWeeklyStandings(season.id, lastMonday);
-        
-        // Apply promotions/demotions
-        await LeagueService.applyPromotionsDemotions(season.id, lastMonday);
-      }
-
-      console.log('✅ Weekly standings job completed');
+      await calculateMonthlyStandings();
     } catch (error) {
-      console.error('❌ Error in weekly standings job:', error);
+      console.error('❌ Error in monthly standings job:', error);
+    }
+  }, {
+    timezone: 'UTC'
+  });
+
+  /**
+   * DAILY STANDINGS UPDATE
+   * Runs every day at 03:00
+   */
+  cron.schedule('0 3 * * *', async () => {
+    console.log('\n📈 Running daily standings update...');
+    try {
+      await calculateMonthlyStandings();
+    } catch (error) {
+      console.error('❌ Error in daily standings job:', error);
     }
   }, {
     timezone: 'UTC'
@@ -60,10 +197,10 @@ export const setupCronJobs = () => {
 
   /**
    * ANTI-CHEAT JOB: Flag anomalies in health data
-   * Runs every day at 02:00
+   * Runs every day at 04:00
    */
-  cron.schedule('0 2 * * *', async () => {
-    console.log('🚨 Starting anti-cheat detection job');
+  cron.schedule('0 4 * * *', async () => {
+    console.log('\n🚨 Starting anti-cheat detection job');
     try {
       const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
       
@@ -71,31 +208,11 @@ export const setupCronJobs = () => {
 
       // Flag excessive calories
       await query(
-        `UPDATE health_daily_summary
-         SET anomaly_flag = true,
-             anomaly_reason = 'Excessive calories for one day'
+        `UPDATE health_data
+         SET flagged = true
          WHERE date = $1
-         AND active_calories > $2
-         AND anomaly_flag = false`,
+         AND calories_burned > $2`,
         [yesterday, maxCalories]
-      );
-
-      // Flag sudden spikes (compare with previous day)
-      const spikeThreshold = parseInt(process.env.MAX_CALORIES_SPIKE_30MIN || '1000');
-      
-      await query(
-        `UPDATE health_daily_summary hds
-         SET anomaly_flag = true,
-             anomaly_reason = 'Unusual spike in calories'
-         WHERE hds.date = $1
-         AND hds.anomaly_flag = false
-         AND EXISTS (
-           SELECT 1 FROM health_daily_summary prev
-           WHERE prev.member_id = hds.member_id
-           AND prev.date = $1::date - INTERVAL '1 day'
-           AND hds.active_calories - prev.active_calories > $2
-         )`,
-        [yesterday, spikeThreshold]
       );
 
       console.log('✅ Anti-cheat detection completed');
@@ -108,12 +225,11 @@ export const setupCronJobs = () => {
 
   /**
    * CLEANUP JOB: Archive old data
-   * Runs every Sunday at 03:00
+   * Runs every Sunday at 05:00
    */
-  cron.schedule('0 3 * * 0', async () => {
-    console.log('🗑️  Starting data cleanup job');
+  cron.schedule('0 5 * * 0', async () => {
+    console.log('\n🗑️  Starting data cleanup job');
     try {
-      // Delete old audit logs (older than 90 days)
       const cutoffDate = dayjs().subtract(90, 'day').format('YYYY-MM-DD');
       
       const result = await query(
@@ -121,7 +237,7 @@ export const setupCronJobs = () => {
         [cutoffDate]
       );
 
-      console.log(`✅ Deleted ${result.rowCount} old audit log entries`);
+      console.log(`✅ Deleted ${result.rowCount || 0} old audit log entries`);
     } catch (error) {
       console.error('❌ Error in cleanup job:', error);
     }
@@ -129,59 +245,9 @@ export const setupCronJobs = () => {
     timezone: 'UTC'
   });
 
-  /**
-   * SEASON STATUS JOB: Update season statuses
-   * Runs every hour
-   */
-  cron.schedule('0 * * * *', async () => {
-    try {
-      const now = new Date();
-
-      // Start seasons that should be active
-      await query(
-        `UPDATE seasons 
-         SET status = 'ACTIVE' 
-         WHERE status = 'DRAFT' 
-         AND start_date <= $1`,
-        [now]
-      );
-
-      // Complete seasons that have ended
-      await query(
-        `UPDATE seasons 
-         SET status = 'COMPLETED' 
-         WHERE status = 'ACTIVE' 
-         AND end_date < $1`,
-        [now]
-      );
-    } catch (error) {
-      console.error('❌ Error in season status job:', error);
-    }
-  }, {
-    timezone: 'UTC'
-  });
-
   console.log('✅ All cron jobs scheduled');
-};
-
-/**
- * Manual trigger for testing
- */
-export const triggerDailyScoreJob = async () => {
-  const yesterday = dayjs().subtract(1, 'day').toDate();
-  await ScoringService.recalculateDailyScores(yesterday);
-};
-
-export const triggerWeeklyStandingsJob = async () => {
-  const lastMonday = dayjs().subtract(1, 'week').startOf('week').toDate();
-  const seasonsResult = await query(
-    `SELECT id FROM seasons WHERE status = 'ACTIVE'`
-  );
-
-  for (const season of seasonsResult.rows) {
-    await LeagueService.calculateWeeklyStandings(season.id, lastMonday);
-    await LeagueService.applyPromotionsDemotions(season.id, lastMonday);
-  }
-};
-
-export default { setupCronJobs, triggerDailyScoreJob, triggerWeeklyStandingsJob };
+  console.log('   - Daily season status check: 00:01 UTC');
+  console.log('   - Monthly standings: 1st of month at 02:00 UTC');
+  console.log('   - Daily standings update: 03:00 UTC');
+  console.log('   - Anti-cheat detection: 04:00 UTC');
+  console.log('   - Data cleanup: Sunday
