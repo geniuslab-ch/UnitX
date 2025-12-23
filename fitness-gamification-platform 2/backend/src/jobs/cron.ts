@@ -154,7 +154,7 @@ export const setupCronJobs = () => {
    * Runs every day at 00:01 (1 minute after midnight)
    */
   cron.schedule('1 0 * * *', async () => {
-    console.log('\n🕐 Running daily season status check...');
+    console.log('🕐 Running daily season status check...');
     try {
       await autoStartSeasons();
       await autoCompleteSeasons();
@@ -170,7 +170,7 @@ export const setupCronJobs = () => {
    * Runs on the 1st of each month at 02:00
    */
   cron.schedule('0 2 1 * *', async () => {
-    console.log('\n📊 Running monthly standings calculation...');
+    console.log('📊 Running monthly standings calculation...');
     try {
       await calculateMonthlyStandings();
     } catch (error) {
@@ -185,7 +185,7 @@ export const setupCronJobs = () => {
    * Runs every day at 03:00
    */
   cron.schedule('0 3 * * *', async () => {
-    console.log('\n📈 Running daily standings update...');
+    console.log('📈 Running daily standings update...');
     try {
       await calculateMonthlyStandings();
     } catch (error) {
@@ -200,13 +200,11 @@ export const setupCronJobs = () => {
    * Runs every day at 04:00
    */
   cron.schedule('0 4 * * *', async () => {
-    console.log('\n🚨 Starting anti-cheat detection job');
+    console.log('🚨 Starting anti-cheat detection job');
     try {
       const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
-      
       const maxCalories = parseInt(process.env.MAX_CALORIES_PER_DAY || '2500');
 
-      // Flag excessive calories
       await query(
         `UPDATE health_data
          SET flagged = true
@@ -228,7 +226,7 @@ export const setupCronJobs = () => {
    * Runs every Sunday at 05:00
    */
   cron.schedule('0 5 * * 0', async () => {
-    console.log('\n🗑️  Starting data cleanup job');
+    console.log('🗑️ Starting data cleanup job');
     try {
       const cutoffDate = dayjs().subtract(90, 'day').format('YYYY-MM-DD');
       
@@ -250,4 +248,23 @@ export const setupCronJobs = () => {
   console.log('   - Monthly standings: 1st of month at 02:00 UTC');
   console.log('   - Daily standings update: 03:00 UTC');
   console.log('   - Anti-cheat detection: 04:00 UTC');
-  console.log('   - Data cleanup: Sunday
+  console.log('   - Data cleanup: Sunday at 05:00 UTC');
+};
+
+/**
+ * Manual triggers for testing
+ */
+export const triggerSeasonStatusCheck = async () => {
+  await autoStartSeasons();
+  await autoCompleteSeasons();
+};
+
+export const triggerMonthlyStandings = async () => {
+  await calculateMonthlyStandings();
+};
+
+export default { 
+  setupCronJobs, 
+  triggerSeasonStatusCheck, 
+  triggerMonthlyStandings 
+};
