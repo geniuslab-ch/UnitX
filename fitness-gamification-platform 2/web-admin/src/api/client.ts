@@ -58,10 +58,8 @@ class ApiClient {
     );
   }
 
-  // --- MÉTHODES API ---
-
+  // --- AUTH ---
   async login(email: string, password: string) {
-    // Appelera : POST [BASE_URL]/api/v1/auth/login
     const { data } = await this.client.post('/auth/login', { email, password });
     if (data.token) {
       localStorage.setItem('access_token', data.token);
@@ -69,10 +67,35 @@ class ApiClient {
     return data;
   }
 
+  // --- CLUBS ---
+  async getClubs(params?: { search?: string; brandId?: string }) {
+    const { data } = await this.client.get('/clubs', { params });
+    return data;
+  }
+
+  async getClub(id: string) {
+    const { data } = await this.client.get(`/clubs/${id}`);
+    return data;
+  }
+
+  async createClub(clubData: any) {
+    const { data } = await this.client.post('/clubs', clubData);
+    return data;
+  }
+
+  async updateClub(id: string, clubData: any) {
+    const { data } = await this.client.put(`/clubs/${id}`, clubData);
+    return data;
+  }
+
+  async deleteClub(id: string) {
+    const { data } = await this.client.delete(`/clubs/${id}`);
+    return data;
+  }
+
   async importClubs(file: File) {
     const formData = new FormData();
     formData.append('file', file);
-
     const { data } = await this.client.post('/clubs/import', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -81,9 +104,98 @@ class ApiClient {
     return data;
   }
 
-  // Exemple pour vos stats du Dashboard
+  // --- BRANDS ---
+  async getBrands(params?: { search?: string }) {
+    const { data } = await this.client.get('/brands', { params });
+    return data;
+  }
+
+  async getBrand(id: string) {
+    const { data } = await this.client.get(`/brands/${id}`);
+    return data;
+  }
+
+  async createBrand(brandData: any) {
+    const { data } = await this.client.post('/brands', brandData);
+    return data;
+  }
+
+  async updateBrand(id: string, brandData: any) {
+    const { data } = await this.client.put(`/brands/${id}`, brandData);
+    return data;
+  }
+
+  async deleteBrand(id: string) {
+    const { data } = await this.client.delete(`/brands/${id}`);
+    return data;
+  }
+
+  // --- SEASONS ---
+  async getSeasons(params?: { status?: string; brandId?: string }) {
+    const { data } = await this.client.get('/seasons', { params });
+    return data;
+  }
+
+  async getSeason(id: string) {
+    const { data } = await this.client.get(`/seasons/${id}`);
+    return data;
+  }
+
+  async createSeason(seasonData: any) {
+    const { data } = await this.client.post('/seasons', seasonData);
+    return data;
+  }
+
+  async updateSeason(id: string, seasonData: any) {
+    const { data } = await this.client.put(`/seasons/${id}`, seasonData);
+    return data;
+  }
+
+  async deleteSeason(id: string) {
+    const { data } = await this.client.delete(`/seasons/${id}`);
+    return data;
+  }
+
+  // --- MEMBERS ---
+  async getMembers(params?: { clubId?: string; search?: string; page?: number; limit?: number }) {
+    const { data } = await this.client.get('/members', { params });
+    return data;
+  }
+
+  async getMember(id: string) {
+    const { data } = await this.client.get(`/members/${id}`);
+    return data;
+  }
+
+  async importMembers(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await this.client.post('/members/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  }
+
+  // --- LEADERBOARD ---
+  async getClubLeaderboard(params: { seasonId: string; week?: string; tier?: string }) {
+    const { data } = await this.client.get('/leaderboard/clubs', { params });
+    return data;
+  }
+
+  async getMemberLeaderboard(params: { clubId: string; week?: string }) {
+    const { data } = await this.client.get('/leaderboard/members', { params });
+    return data;
+  }
+
+  // --- QR CODES ---
+  async getClubQRCode(clubId: string) {
+    const { data } = await this.client.get(`/clubs/${clubId}/qr`);
+    return data;
+  }
+
+  // --- DASHBOARD ---
   async getDashboardStats() {
-    const { data } = await this.client.get('/health-check'); // Route de santé
+    const { data } = await this.client.get('/admin/dashboard/stats');
     return data;
   }
 }
