@@ -23,7 +23,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
     }
     
     if (search) {
-      params.push(`%${search}%`);
+      params.push(`%${search}%`);  // ✅ CORRIGÉ
       sql += ` AND c.name ILIKE $${params.length}`;
     }
     
@@ -112,24 +112,3 @@ router.put('/:id', authenticateToken, requireRole('SUPER_ADMIN', 'BRAND_ADMIN', 
     res.status(500).json({ error: 'Failed to update club' });
   }
 });
-
-// Delete club
-router.delete('/:id', authenticateToken, requireRole('SUPER_ADMIN'), async (req: Request, res: Response) => {
-  try {
-    const result = await query(
-      'UPDATE clubs SET status = $1 WHERE id = $2 RETURNING *',
-      ['DELETED', req.params.id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Club not found' });
-    }
-    
-    res.json({ message: 'Club deleted successfully' });
-  } catch (error) {
-    console.error('Delete club error:', error);
-    res.status(500).json({ error: 'Failed to delete club' });
-  }
-});
-
-export default router;
