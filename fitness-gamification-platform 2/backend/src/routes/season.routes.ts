@@ -165,5 +165,76 @@ router.delete('/:id', authenticateToken, requireRole('SUPER_ADMIN'), async (req:
     res.status(500).json({ error: 'Failed to cancel season' });
   }
 });
+// Get monthly standings for a season
+router.get('/:id/standings', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { month, year } = req.query;
+    
+    let sql = `
+      SELECT ws.*, c.name as club_name, c.city,
+             ws.club_rank,
+             ws.total_points,
+             ws.total_checkins,
+             ws.week_number as month_number
+      FROM weekly_standings ws
+      JOIN clubs c ON ws.club_id = c.id
+      WHERE ws.season_id = $1
+    `;
+    
+    const params: any[] = [req.params.id];
+    
+    if (month && year) {
+      sql += ` AND EXTRACT(MONTH FROM ws.week_start) = $2 AND EXTRACT(YEAR FROM ws.week_start) = $3`;
+      params.push(month, year);
+    } else {
+      // Current month by default
+      sql += ` AND ws.week_start >= date_trunc('month', CURRENT_DATE)`;
+    }
+    
+    sql += ` ORDER BY ws.club_rank ASC`;
+    
+    const result = await query(sql, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get standings error:', error);
+    res.status(500).json({ error: 'Failed to fetch standings' });
+  }
+});
 
+// Get season progress (percentage complete)
+router.get('/:id/progress', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT 
+         start_date, 
+         end_date,
+         status,
+         CASE 
+           WHEN status = 'DRAFT' THEN 0
+           WHEN status = 'COMPLETED' THEN 100
+           WHEN status = 'ACTIVE' THEN 
+             ROUND(
+               (EXTRACT(EPOCH FROM (CURRENT_DATE - start_date)) / 
+                EXTRACT(EPOCH FROM (end_date - start_date))) * 100
+             )
+         END as progress_percentage,
+         CASE 
+           WHEN status = 'ACTIVE' THEN 
+             EXTRACT(EPOCH FROM (end_date - CURRENT_DATE)) / 86400
+         END as days_remaining
+       FROM seasons
+       WHERE id = $1`,
+      [req.params.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Season not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Get progress error:', error);
+    res.status(500).json({ error: 'Failed to fetch progress' });
+  }
+});
 export default router;
